@@ -1,0 +1,61 @@
+cat << 'EOF' > ~/repack_xiso_game.sh
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+SRC_DIR="/storage/emulated/0/Download/logs/Black_Xbox_Extracted"
+OUT_ISO="/storage/emulated/0/Download/logs/Black_Xbox_Repacked.iso"
+
+echo "=========================================="
+echo "1. التحقق من أداة extract-xiso..."
+echo "=========================================="
+if ! command -v extract-xiso >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y -o Dpkg::Options::="--force-confnew" git cmake make clang
+
+    rm -rf ~/extract-xiso
+    git clone --depth 1 https://github.com/XboxDev/extract-xiso.git ~/extract-xiso
+    mkdir -p ~/extract-xiso/build
+    cd ~/extract-xiso/build
+    cmake .. -DCMAKE_C_FLAGS="-D__LINUX__"
+    make -j$(nproc)
+    cp extract-xiso "$PREFIX/bin/extract-xiso"
+    chmod +x "$PREFIX/bin/extract-xiso"
+    cd ~
+    rm -rf ~/extract-xiso
+fi
+
+echo "=========================================="
+echo "2. التحقق من مجلد ملفات اللعبة..."
+echo "=========================================="
+if [ ! -d "$SRC_DIR" ]; then
+    echo "خطأ: المجلد غير موجود في المسار: $SRC_DIR"
+    exit 1
+fi
+
+if [ ! -f "$SRC_DIR/default.xbe" ]; then
+    echo "خطأ: ملف التشغيل الرئيسي default.xbe غير موجود داخل $SRC_DIR"
+    echo "تأكد من أن المسار يشير إلى المجلد الجذري لملفات اللعبة."
+    exit 1
+fi
+
+echo "=========================================="
+echo "3. بدء إعادة تجميع اللعبة بصيغة XISO..."
+echo "=========================================="
+rm -f "$OUT_ISO"
+extract-xiso -c "$SRC_DIR" "$OUT_ISO"
+
+echo "=========================================="
+echo "4. التحقق من ملف الـ ISO الناتج..."
+echo "=========================================="
+if [ -f "$OUT_ISO" ]; then
+    ISO_SIZE=$(du -sh "$OUT_ISO" | cut -f1)
+    echo "تمت إعادة التجميع بنجاح!"
+    echo "ملف اللعبة الجديد: $OUT_ISO"
+    echo "حجم الملف الناتج: $ISO_SIZE"
+else
+    echo "خطأ: فشل إنشاء ملف الـ ISO."
+    exit 1
+fi
+echo "=========================================="
+EOF
+chmod +x ~/repack_xiso_game.sh && bash ~/repack_xiso_game.sh
